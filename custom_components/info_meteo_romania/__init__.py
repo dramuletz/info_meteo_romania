@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL, CITIES
+from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL, FORECAST_API_URL, CITIES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,10 +45,6 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=SCAN_INTERVAL),
         )
         self.entry = entry
-
-        # Compatibilitate cu versiunile vechi si noi ale config entry
-        # Versiune noua: city_display + city_api
-        # Versiune veche: city
         self.city_display = (
             entry.data.get("city_display")
             or entry.data.get("city")
@@ -56,13 +52,18 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
         )
         city_api_saved = entry.data.get("city_api", "")
 
-        # Daca city_api nu e salvat, il cautam in CITIES dupa city_display
-        if city_api_saved:
-            self.city_api = city_api_saved.upper()
+        city_info = CITIES.get(self.city_display)
+        if city_info:
+            self.city_api = city_info[0]
+            self.lat = city_info[1]
+            self.lon = city_info[2]
         else:
-            self.city_api = CITIES.get(self.city_display, self.city_display.upper())
+            self.city_api = city_api_saved.upper() if city_api_saved else self.city_display.upper()
+            self.lat = None
+            self.lon = None
 
-        _LOGGER.debug("Coordinator init: city_display=%s, city_api=%s", self.city_display, self.city_api)
+        _LOGGER.debug("Coordinator: city=%s, api=%s, lat=%s, lon=%s",
+                      self.city_display, self.city_api, self.lat, self.lon)
         self.session = async_get_clientsession(hass)
 
     async def _async_update_data(self):
@@ -71,11 +72,13 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                 weather_data = await self._fetch_weather()
                 alerts_data = await self._fetch_alerts()
                 nowcasting_data = await self._fetch_nowcasting()
+                forecast_data = await self._fetch_forecast()
 
             return {
                 "weather": weather_data,
                 "alerts": alerts_data,
                 "nowcasting": nowcasting_data,
+                "forecast": forecast_data,
                 "city": self.city_display,
             }
         except aiohttp.ClientError as err:
@@ -87,23 +90,50 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                 if resp.status == 200:
                     data = await resp.json(content_type=None)
                     features = data.get("features", [])
-
                     for feature in features:
                         props = feature.get("properties", {})
-                        station_name = props.get("nume", "").upper()
-                        if station_name == self.city_api:
-                            _LOGGER.debug("Date gasite pentru %s: %s", self.city_api, props)
+                        if props.get("nume", "").upper() == self.city_api:
                             return props
-
-                    _LOGGER.warning(
-                        "Statia '%s' nu a fost gasita. Statii disponibile: %s",
-                        self.city_api,
-                        [f.get("properties", {}).get("nume") for f in features[:10]]
-                    )
+                    _LOGGER.warning("Statia '%s' nu a fost gasita in API.", self.city_api)
                     return {}
         except Exception as err:
             _LOGGER.error("Eroare fetch weather: %s", err)
             return {}
+
+    async def _fetch_forecast(self):
+        """Prognoza 7 zile via Open-Meteo (gratuit, fara API key)."""
+        if not self.lat or not self.lon:
+            return []
+        try:
+            url = FORECAST_API_URL.format(lat=self.lat, lon=self.lon)
+            async with self.session.get(url) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    daily = data.get("daily", {})
+                    if not daily:
+                        return []
+
+                    times = daily.get("time", [])
+                    temp_max = daily.get("temperature_2m_max", [])
+                    temp_min = daily.get("temperature_2m_min", [])
+                    precip_prob = daily.get("precipitation_probability_max", [])
+                    weathercodes = daily.get("weathercode", [])
+                    wind_max = daily.get("windspeed_10m_max", [])
+
+                    forecasts = []
+                    for i, date in enumerate(times):
+                        forecasts.append({
+                            "date": date,
+                            "temp_max": temp_max[i] if i < len(temp_max) else None,
+                            "temp_min": temp_min[i] if i < len(temp_min) else None,
+                            "precip_prob": precip_prob[i] if i < len(precip_prob) else None,
+                            "weathercode": weathercodes[i] if i < len(weathercodes) else 0,
+                            "wind_max": wind_max[i] if i < len(wind_max) else None,
+                        })
+                    return forecasts
+        except Exception as err:
+            _LOGGER.warning("Eroare fetch forecast Open-Meteo: %s", err)
+            return []
 
     async def _fetch_alerts(self):
         try:
