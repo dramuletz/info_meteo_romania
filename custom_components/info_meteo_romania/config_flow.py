@@ -21,26 +21,26 @@ class InfoMeteoRomaniaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Pasul inițial de configurare - selectarea localității."""
+        """Pasul inițial - selectarea localității."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            city_name = user_input["city"]
-            city_id = CITIES.get(city_name, 0)
+            city_display = user_input["city"]
+            city_api = CITIES.get(city_display, city_display.upper())
 
-            # Verifică dacă integrarea pentru acest oraș există deja
-            await self.async_set_unique_id(f"{DOMAIN}_{city_name.lower().replace(' ', '_')}")
+            await self.async_set_unique_id(
+                f"{DOMAIN}_{city_display.lower().replace(' ', '_')}"
+            )
             self._abort_if_unique_id_configured()
 
             return self.async_create_entry(
-                title=f"Meteo {city_name.title()}",
+                title=f"Meteo {city_display}",
                 data={
-                    "city": city_name,
-                    "city_id": city_id,
+                    "city_display": city_display,   # ex: "Brașov"
+                    "city_api": city_api,           # ex: "BRASOV GHIMBAV"
                 },
             )
 
-        # Sortează orașele alfabetic pentru dropdown
         sorted_cities = sorted(CITIES.keys())
 
         schema = vol.Schema(
@@ -60,21 +60,17 @@ class InfoMeteoRomaniaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def async_get_options_flow(config_entry: config_entries.ConfigEntry):
-        """Returnează options flow."""
         return InfoMeteoRomaniaOptionsFlow(config_entry)
 
 
 class InfoMeteoRomaniaOptionsFlow(config_entries.OptionsFlow):
-    """Gestionează opțiunile integrării."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Inițializează options flow."""
         self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Gestionează opțiunile."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
