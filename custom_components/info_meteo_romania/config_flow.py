@@ -34,7 +34,7 @@ class InfoMeteoRomaniaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             return self.async_create_entry(
-                title=f"Meteo {city_display}",
+                title=f"Info Meteo Romania - {city_display}",
                 data={
                     "city_display": city_display,   # ex: "Brașov"
                     "city_api": city_api,           # ex: "BRASOV GHIMBAV"
