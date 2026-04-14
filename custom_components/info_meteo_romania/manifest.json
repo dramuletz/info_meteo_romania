@@ -1,7 +1,7 @@
 {
   "domain": "info_meteo_romania",
   "name": "Info Meteo Romania",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "config_flow": true,
   "documentation": "https://github.com/dramuletz/info_meteo_romania",
   "issue_tracker": "https://github.com/dramuletz/info_meteo_romania/issues",
