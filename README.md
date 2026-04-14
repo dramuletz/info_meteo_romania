@@ -1,7 +1,7 @@
 # 🌦️ Info Meteo Romania
 
 [!\[hacs\_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[!\[GitHub Release](https://img.shields.io/github/release/dramuletz/info\_meteo\_romania.svg)](https://github.com/YOUR_USERNAME/info_meteo_romania/releases)
+[!\[GitHub Release](https://img.shields.io/github/release/dramuletz/info\_meteo\_romania.svg)](https://github.com/dramuletz/info_meteo_romania/releases)
 [!\[License](https://img.shields.io/github/license/dramuletz/info\_meteo\_romania.svg)](LICENSE)
 
 Integrare **Home Assistant** pentru date meteo oficiale de la **ANM (Administrația Națională de Meteorologie)** din România.
