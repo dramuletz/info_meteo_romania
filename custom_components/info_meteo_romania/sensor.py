@@ -29,9 +29,119 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
+def _parse_temperature(data):
+    """Extrage temperatura - campul 'tempe' din API."""
+    weather = data.get("weather", {})
+    try:
+        return round(float(weather.get("tempe", 0)), 1)
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_humidity(data):
+    """Extrage umiditatea - campul 'umezeala' din API."""
+    weather = data.get("weather", {})
+    try:
+        return float(weather.get("umezeala", 0))
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_pressure(data):
+    """Extrage presiunea din campul 'presiunetext' ex: '1013.2 mb, in scadere'."""
+    weather = data.get("weather", {})
+    presiune_text = weather.get("presiunetext", "")
+    try:
+        return round(float(presiune_text.split(" ")[0]), 1)
+    except (ValueError, TypeError, IndexError):
+        return None
+
+
+def _parse_pressure_trend(data):
+    """Extrage trendul presiunii din 'presiunetext'."""
+    weather = data.get("weather", {})
+    presiune_text = weather.get("presiunetext", "")
+    parts = presiune_text.split(", ")
+    return parts[1] if len(parts) > 1 else None
+
+
+def _parse_wind_speed(data):
+    """Extrage viteza vantului din campul 'vant' ex: '7.0 m/s, directia : ESE'."""
+    weather = data.get("weather", {})
+    vant_text = weather.get("vant", "")
+    try:
+        return round(float(vant_text.split(" ")[0]), 1)
+    except (ValueError, TypeError, IndexError):
+        return None
+
+
+def _parse_wind_direction(data):
+    """Extrage directia vantului din campul 'vant' ex: '7.0 m/s, directia : ESE'."""
+    weather = data.get("weather", {})
+    vant_text = weather.get("vant", "")
+    try:
+        return vant_text.split(": ")[1].strip()
+    except (IndexError, AttributeError):
+        return None
+
+
+def _parse_cloudiness(data):
+    """Extrage nebulozitatea."""
+    weather = data.get("weather", {})
+    return weather.get("nebulozitate", None)
+
+
+def _parse_snow(data):
+    """Extrage stratul de zapada din campul 'zapada' ex: '177 cm la ora 15'."""
+    weather = data.get("weather", {})
+    zapada_text = weather.get("zapada", "indisponibil")
+    if zapada_text == "indisponibil":
+        return None
+    try:
+        return float(zapada_text.split(" ")[0])
+    except (ValueError, TypeError, IndexError):
+        return None
+
+
+def _parse_phenomenon(data):
+    """Extrage fenomenul meteo."""
+    weather = data.get("weather", {})
+    fenomen = weather.get("fenomen_e", "indisponibil")
+    return None if fenomen == "indisponibil" else fenomen
+
+
+def _parse_alerts_count(data):
+    """Numarul de alerte active."""
+    alerts = data.get("alerts", [])
+    return len(alerts) if isinstance(alerts, list) else 0
+
+
+def _parse_alert_color(data):
+    """Culoarea celei mai severe alerte."""
+    alerts = data.get("alerts", [])
+    if not alerts:
+        return "Verde"
+    color_priority = {"red": 4, "orange": 3, "yellow": 2, "green": 1}
+    color_names = {"red": "Roșu", "orange": "Portocaliu", "yellow": "Galben", "green": "Verde"}
+    max_color = "green"
+    max_priority = 0
+    for alert in alerts:
+        if isinstance(alert, dict):
+            color = alert.get("color", "green").lower()
+            if color_priority.get(color, 0) > max_priority:
+                max_priority = color_priority[color]
+                max_color = color
+    return color_names.get(max_color, "Verde")
+
+
+def _parse_nowcasting_count(data):
+    """Numarul de avertizari nowcasting."""
+    nowcasting = data.get("nowcasting", [])
+    return len(nowcasting) if isinstance(nowcasting, list) else 0
+
+
 @dataclass
 class MeteoSensorEntityDescription(SensorEntityDescription):
-    """Descriere senzor meteo cu câmp extra pentru extragere date."""
     value_fn: callable = None
 
 
@@ -43,7 +153,7 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
-        value_fn=lambda data: _get_weather_value(data, "temp"),
+        value_fn=_parse_temperature,
     ),
     MeteoSensorEntityDescription(
         key="humidity",
@@ -52,7 +162,7 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:water-percent",
-        value_fn=lambda data: _get_weather_value(data, "umezeala"),
+        value_fn=_parse_humidity,
     ),
     MeteoSensorEntityDescription(
         key="pressure",
@@ -61,7 +171,7 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:gauge",
-        value_fn=lambda data: _get_weather_value(data, "presiune"),
+        value_fn=_parse_pressure,
     ),
     MeteoSensorEntityDescription(
         key="wind_speed",
@@ -70,7 +180,7 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.WIND_SPEED,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:weather-windy",
-        value_fn=lambda data: _get_weather_value(data, "vant"),
+        value_fn=_parse_wind_speed,
     ),
     MeteoSensorEntityDescription(
         key="wind_direction",
@@ -79,7 +189,7 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=None,
         state_class=None,
         icon="mdi:compass",
-        value_fn=lambda data: _get_weather_value(data, "directie_vant"),
+        value_fn=_parse_wind_direction,
     ),
     MeteoSensorEntityDescription(
         key="cloudiness",
@@ -88,7 +198,7 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=None,
         state_class=None,
         icon="mdi:weather-cloudy",
-        value_fn=lambda data: _get_weather_value(data, "nebulozitate"),
+        value_fn=_parse_cloudiness,
     ),
     MeteoSensorEntityDescription(
         key="snow_depth",
@@ -97,7 +207,16 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=None,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:snowflake",
-        value_fn=lambda data: _get_weather_value(data, "strat_zapada"),
+        value_fn=_parse_snow,
+    ),
+    MeteoSensorEntityDescription(
+        key="phenomenon",
+        name="Fenomen Meteo",
+        native_unit_of_measurement=None,
+        device_class=None,
+        state_class=None,
+        icon="mdi:weather-partly-rainy",
+        value_fn=_parse_phenomenon,
     ),
     MeteoSensorEntityDescription(
         key="anm_alerts",
@@ -106,7 +225,7 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=None,
         state_class=None,
         icon="mdi:alert-octagon",
-        value_fn=lambda data: _get_alerts_count(data),
+        value_fn=_parse_alerts_count,
     ),
     MeteoSensorEntityDescription(
         key="alert_color",
@@ -115,7 +234,7 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=None,
         state_class=None,
         icon="mdi:alert",
-        value_fn=lambda data: _get_alert_color(data),
+        value_fn=_parse_alert_color,
     ),
     MeteoSensorEntityDescription(
         key="nowcasting_alerts",
@@ -124,72 +243,9 @@ SENSOR_TYPES: tuple[MeteoSensorEntityDescription, ...] = (
         device_class=None,
         state_class=None,
         icon="mdi:weather-lightning",
-        value_fn=lambda data: _get_nowcasting_count(data),
+        value_fn=_parse_nowcasting_count,
     ),
 )
-
-
-def _get_weather_value(data: dict, key: str) -> Any:
-    """Extrage valoare din datele meteo."""
-    weather = data.get("weather", {})
-    if not weather:
-        return None
-    
-    value = weather.get(key)
-    if value is None:
-        # Încearcă câmpuri alternative din API
-        alt_keys = {
-            "temp": ["temperatura", "t"],
-            "umezeala": ["humidity", "rh"],
-            "presiune": ["pressure", "p"],
-            "vant": ["wind_speed", "ff"],
-            "directie_vant": ["wind_dir", "dd"],
-            "nebulozitate": ["clouds", "neb"],
-            "strat_zapada": ["snow", "snow_depth"],
-        }
-        for alt in alt_keys.get(key, []):
-            value = weather.get(alt)
-            if value is not None:
-                break
-    
-    try:
-        return round(float(value), 1) if value is not None else None
-    except (ValueError, TypeError):
-        return value
-
-
-def _get_alerts_count(data: dict) -> int:
-    """Returnează numărul de alerte active."""
-    alerts = data.get("alerts", [])
-    return len(alerts) if isinstance(alerts, list) else 0
-
-
-def _get_alert_color(data: dict) -> str:
-    """Returnează culoarea celei mai severe alerte active."""
-    alerts = data.get("alerts", [])
-    if not alerts:
-        return "Verde"
-    
-    color_priority = {"red": 4, "orange": 3, "yellow": 2, "green": 1}
-    color_names = {"red": "Roșu", "orange": "Portocaliu", "yellow": "Galben", "green": "Verde"}
-    
-    max_color = "green"
-    max_priority = 0
-    
-    for alert in alerts:
-        if isinstance(alert, dict):
-            color = alert.get("color", "green").lower()
-            if color_priority.get(color, 0) > max_priority:
-                max_priority = color_priority[color]
-                max_color = color
-    
-    return color_names.get(max_color, "Verde")
-
-
-def _get_nowcasting_count(data: dict) -> int:
-    """Returnează numărul avertizărilor nowcasting."""
-    nowcasting = data.get("nowcasting", [])
-    return len(nowcasting) if isinstance(nowcasting, list) else 0
 
 
 async def async_setup_entry(
@@ -197,9 +253,7 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Configurează senzorii."""
     coordinator: MeteoRomaniaCoordinator = hass.data[DOMAIN][config_entry.entry_id]
-
     entities = [
         MeteoRomaniaSensor(coordinator, description, config_entry)
         for description in SENSOR_TYPES
@@ -208,17 +262,9 @@ async def async_setup_entry(
 
 
 class MeteoRomaniaSensor(CoordinatorEntity, SensorEntity):
-    """Senzor pentru Info Meteo Romania."""
-
     entity_description: MeteoSensorEntityDescription
 
-    def __init__(
-        self,
-        coordinator: MeteoRomaniaCoordinator,
-        description: MeteoSensorEntityDescription,
-        config_entry: ConfigEntry,
-    ) -> None:
-        """Inițializează senzorul."""
+    def __init__(self, coordinator, description, config_entry):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{config_entry.entry_id}_{description.key}"
@@ -227,7 +273,6 @@ class MeteoRomaniaSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self):
-        """Informații despre dispozitiv."""
         city = self._config_entry.data.get("city", "")
         return {
             "identifiers": {(DOMAIN, self._config_entry.entry_id)},
@@ -239,24 +284,20 @@ class MeteoRomaniaSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self):
-        """Returnează valoarea senzorului."""
         if self.coordinator.data is None:
             return None
         return self.entity_description.value_fn(self.coordinator.data)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Atribute extra."""
         if self.coordinator.data is None:
             return {}
-
         attrs = {
             "localitate": self.coordinator.data.get("city"),
-            "ultima_actualizare": self.coordinator.last_update_success_time,
             "sursa_date": "ANM - www.meteoromania.ro",
         }
-
-        # Adaugă detalii alerte
+        if self.entity_description.key == "pressure":
+            attrs["trend"] = _parse_pressure_trend(self.coordinator.data)
         if self.entity_description.key == "anm_alerts":
             alerts = self.coordinator.data.get("alerts", [])
             if alerts:
@@ -267,14 +308,7 @@ class MeteoRomaniaSensor(CoordinatorEntity, SensorEntity):
                         "start": a.get("start_date", ""),
                         "sfarsit": a.get("end_date", ""),
                         "descriere": a.get("description", ""),
-                        "judet": a.get("county", ""),
                     }
                     for a in alerts if isinstance(a, dict)
                 ]
-
-        if self.entity_description.key == "nowcasting_alerts":
-            nowcasting = self.coordinator.data.get("nowcasting", [])
-            if nowcasting:
-                attrs["nowcasting_detalii"] = nowcasting[:5]  # primele 5
-
         return attrs
