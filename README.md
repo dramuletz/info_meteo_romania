@@ -198,7 +198,7 @@ action:
     data:
       title: "⚠️ Alertă Meteo ANM - Brașov"
       message: >
-        🟡 Alertă {{ states('sensor.brasov_alert_color') }} activă în zona Brașov!
+        🟡 Alertă! Atentie cod {{ states('sensor.brasov_alert_color') }} activ în zona Brașov!
 
         {% set alerte = state_attr('sensor.brasov_anm_alerts', 'alerte_detalii') %}
         {% if alerte %}
@@ -259,7 +259,7 @@ action:
 mode: single
 ```
 
-> 💡 Înlocuiește `brasov` cu slug-ul localității tale și `mobile_app_telefonul_meu` cu numele serviciului tău de notificări.
+> 💡 Înlocuiește `brasov` cu numele localității tale și `mobile_app_telefonul_meu` cu numele serviciului tău de notificări.
 
 ---
 
