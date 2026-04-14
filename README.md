@@ -75,13 +75,64 @@ Pentru fiecare localitate configurată:
 
 ---
 
-## Exemplu Dashboard
+## Exemple de utilizare
+
+### Card 1 — Vreme completă cu prognoză
+
+Afișează un card meteo complet cu temperatura curentă, condiții și prognoză zilnică.
 
 ```yaml
 type: weather-forecast
-entity: weather.meteo_brasov
+entity: weather.info_meteo_romania_brasov
 forecast_type: daily
+name: Meteo Brașov
+show_forecast: true
 ```
+
+---
+
+### Card 2 — Panou detaliat cu senzori și alerte
+
+Afișează toți senzorii și alertele ANM într-un singur card.
+
+```yaml
+type: entities
+title: 🌦️ Meteo Brașov - ANM
+entities:
+  - entity: sensor.brasov_temperature
+    name: Temperatură
+    icon: mdi:thermometer
+  - entity: sensor.brasov_humidity
+    name: Umiditate
+    icon: mdi:water-percent
+  - entity: sensor.brasov_pressure
+    name: Presiune
+    icon: mdi:gauge
+  - entity: sensor.brasov_wind_speed
+    name: Vânt
+    icon: mdi:weather-windy
+  - entity: sensor.brasov_wind_direction
+    name: Direcție vânt
+    icon: mdi:compass
+  - entity: sensor.brasov_cloudiness
+    name: Nebulozitate
+    icon: mdi:weather-cloudy
+  - entity: sensor.brasov_snow_depth
+    name: Strat zăpadă
+    icon: mdi:snowflake
+  - type: divider
+  - entity: sensor.brasov_anm_alerts
+    name: Alerte ANM active
+    icon: mdi:alert-octagon
+  - entity: sensor.brasov_alert_color
+    name: Severitate alertă
+    icon: mdi:alert
+  - entity: sensor.brasov_nowcasting_alerts
+    name: Avertizări Nowcasting
+    icon: mdi:weather-lightning
+```
+
+> 💡 Înlocuiește `brasov` cu numele localității tale (ex: `timisoara`, `cluj_napoca`, `bucuresti_baneasa`).
 
 ---
 
