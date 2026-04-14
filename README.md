@@ -1,77 +1,103 @@
-🌦️ Info Meteo Romania
-![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)
-![GitHub Release](https://img.shields.io/github/release/dramuletz/info_meteo_romania.svg)
-![License](https://img.shields.io/github/license/dramuletz/info_meteo_romania.svg)
-Integrare Home Assistant pentru date meteo oficiale de la ANM (Administrația Națională de Meteorologie) din România.
-✨ Funcționalități
-🌡️ Temperatură, umiditate, presiune în timp real
-💨 Vânt - viteză și direcție
-☁️ Nebulozitate actualizată
-❄️ Strat de zăpadă (unde este disponibil)
-🚨 Alerte ANM cu culori (Verde/Galben/Portocaliu/Roșu)
-⛈️ Avertizări Nowcasting (fenomene imediate)
-🗺️ 72+ localități din toată România
-🔄 Actualizare automată la 30 de minute
-📥 Instalare via HACS
-Metodă 1: HACS - Repository Custom (recomandat)
-Deschide HACS în Home Assistant
-Click pe "Integrations"
-Click pe cele 3 puncte din colțul dreapta sus → "Custom repositories"
-Adaugă URL-ul: `https://github.com/YOUR_dramuletz/info_meteo_romania`
-Selectează categoria: Integration
-Click "Add"
-Caută "Info Meteo Romania" și instalează
-Metodă 2: Instalare manuală
-Descarcă ultima versiune din Releases
-Copiază folderul `custom_components/info_meteo_romania` în directorul `custom_components` din Home Assistant
-Repornește Home Assistant
-⚙️ Configurare
-Mergi la Settings → Devices & Services → Add Integration
-Caută "Info Meteo Romania"
-Selectează localitatea din lista dropdown
-Click Submit
-Poți adăuga mai multe localități repetând procesul!
-📊 Entități Create
-Pentru fiecare localitate configurată se creează:
-Entitate	Tip	Descriere
-`weather.meteo_[localitate]`	Weather	Card meteo complet
-`sensor.[localitate]_temperatura`	Sensor	Temperatura în °C
-`sensor.[localitate]_umiditate_relativa`	Sensor	Umiditate în %
-`sensor.[localitate]_presiune_atmosferica`	Sensor	Presiune în hPa
-`sensor.[localitate]_viteza_vantului`	Sensor	Vânt în m/s
-`sensor.[localitate]_directia_vantului`	Sensor	Direcția vântului
-`sensor.[localitate]_nebulozitate`	Sensor	Starea cerului
-`sensor.[localitate]_strat_zapada`	Sensor	Zăpadă în cm
-`sensor.[localitate]_alerte_anm`	Sensor	Nr. alerte active
-`sensor.[localitate]_culoare_alerta_anm`	Sensor	Severitatea alertei
-`sensor.[localitate]_avertizari_nowcasting`	Sensor	Nr. avertizări imediate
-🗺️ Localități Disponibile
-Integrarea suportă 72+ stații meteo ANM incluzând:
-Alba Iulia, Alexandria, Arad, Bacău, Baia Mare, Bistrița, Botoșani, Brăila, Brașov, București, Buzău, Calafat, Cluj-Napoca, Constanța, Craiova, Deva, Focșani, Galați, Giurgiu, Iași, Lugoj, Mangalia, Miercurea Ciuc, Oradea, Petroșani, Piatra Neamț, Pitești, Ploiești, Predeal, Râmnicu Vâlcea, Reșița, Roman, Satu Mare, Sfântu Gheorghe, Sibiu, Sighetu Marmației, Sinaia, Slatina, Slobozia, Suceava, Sulina, Timișoara, Tulcea, Turda, Vaslui, Zalău și multe altele!
-🏠 Exemplu Dashboard Lovelace
+# Info Meteo Romania 🌦️
+
+<div align="center">
+
+![Logo](https://www.meteoromania.ro/wp-content/uploads/2016/07/logo-meteo2.png)
+
+**Integrare oficială ANM pentru Home Assistant**
+
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://github.com/hacs/integration)
+[![Release](https://img.shields.io/github/v/release/dramuletz/info_meteo_romania?style=for-the-badge&color=blue)](https://github.com/dramuletz/info_meteo_romania/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![HA](https://img.shields.io/badge/Home%20Assistant-2023.1+-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+
+</div>
+
+---
+
+## Despre integrare
+
+Date meteo oficiale de la **ANM – Administrația Națională de Meteorologie** direct în Home Assistant. Alerte, avertizări și starea vremii pentru **72+ localități** din România, actualizate automat la fiecare 30 de minute.
+
+---
+
+## Funcționalități
+
+| | |
+|---|---|
+| 🌡️ Temperatură, umiditate, presiune | ⛈️ Avertizări Nowcasting |
+| 💨 Viteză și direcție vânt | 🗺️ 72+ localități disponibile |
+| ☁️ Nebulozitate | 🔄 Actualizare automată 30 min |
+| ❄️ Strat de zăpadă | 🟡 Alerte ANM (Verde/Galben/Portocaliu/Roșu) |
+
+---
+
+## Instalare via HACS
+
+**1.** Deschide HACS → Integrations → ⋮ → **Custom repositories**
+
+**2.** Adaugă: `https://github.com/dramuletz/info_meteo_romania` → categorie **Integration**
+
+**3.** Caută **Info Meteo Romania** și instalează
+
+**4.** Repornește Home Assistant
+
+---
+
+## Configurare
+
+1. **Settings** → **Devices & Services** → **Add Integration**
+2. Caută **Info Meteo Romania**
+3. Selectează **localitatea** din lista dropdown
+4. Click **Submit** ✅
+
+> Poți adăuga **mai multe localități** repetând procesul.
+
+---
+
+## Entități create
+
+Pentru fiecare localitate configurată:
+
+| Entitate | Descriere |
+|----------|-----------|
+| `weather.meteo_[localitate]` | Card meteo complet |
+| `sensor.[localitate]_temperatura` | Temperatura în °C |
+| `sensor.[localitate]_umiditate_relativa` | Umiditate în % |
+| `sensor.[localitate]_presiune_atmosferica` | Presiune în hPa |
+| `sensor.[localitate]_viteza_vantului` | Vânt în m/s |
+| `sensor.[localitate]_directia_vantului` | Direcția vântului |
+| `sensor.[localitate]_nebulozitate` | Starea cerului |
+| `sensor.[localitate]_strat_zapada` | Zăpadă în cm |
+| `sensor.[localitate]_alerte_anm` | Număr alerte active |
+| `sensor.[localitate]_culoare_alerta_anm` | Severitatea alertei |
+| `sensor.[localitate]_avertizari_nowcasting` | Avertizări imediate |
+
+---
+
+## Exemplu Dashboard
+
 ```yaml
 type: weather-forecast
 entity: weather.meteo_brasov
 forecast_type: daily
 ```
-```yaml
-type: entities
-title: Meteo Brașov
-entities:
-  - entity: sensor.brasov_temperatura
-  - entity: sensor.brasov_umiditate_relativa
-  - entity: sensor.brasov_alerte_anm
-    icon: mdi:alert-octagon
-  - entity: sensor.brasov_culoare_alerta_anm
-```
-📡 Surse de Date
-Toate datele sunt obținute direct de la serverele oficiale ANM:
-Starea vremii: `https://www.meteoromania.ro/wp-json/meteoapi/v2/starea-vremii`
-Alerte XML: `https://www.meteoromania.ro/avertizari-xml.php`
-Nowcasting XML: `https://www.meteoromania.ro/avertizari-nowcasting-xml.php`
-🤝 Contribuții
-Contribuțiile sunt binevenite! Deschide un Issue sau un Pull Request.
-📝 Licență
-Distribuit sub licența MIT. Vezi LICENSE pentru detalii.
+
 ---
-> **Date furnizate de** [ANM - Administrația Națională de Meteorologie](https://www.meteoromania.ro/)
+
+## Surse de date
+
+Datele sunt preluate direct de pe serverele oficiale ANM:
+
+- 🌐 [www.meteoromania.ro](https://www.meteoromania.ro/)
+- 📡 API Starea Vremii
+- 📋 XML Alerte ANM
+- ⚡ XML Nowcasting
+
+---
+
+<div align="center">
+
+Dezvoltat cu ❤️ pentru comunitatea Home Assistant din România
+
+</div>
