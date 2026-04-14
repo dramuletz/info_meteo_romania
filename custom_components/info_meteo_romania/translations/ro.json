@@ -1,0 +1,34 @@
+{
+  "title": "Info Meteo Romania",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Info Meteo Romania",
+        "description": "Selectează localitatea pentru care dorești datele meteo ANM. Datele sunt furnizate de Administrația Națională de Meteorologie.",
+        "data": {
+          "city": "Localitate"
+        },
+        "data_description": {
+          "city": "Alege din lista de stații meteo ANM disponibile ({total_cities} localități)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nu se poate conecta la serverul ANM",
+      "unknown": "Eroare necunoscută"
+    },
+    "abort": {
+      "already_configured": "Integrarea pentru această localitate este deja configurată"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opțiuni Info Meteo Romania",
+        "data": {
+          "scan_interval": "Interval de actualizare (minute)"
+        }
+      }
+    }
+  }
+}
