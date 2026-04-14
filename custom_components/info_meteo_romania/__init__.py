@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL
+from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL, CITIES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,10 +45,24 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=SCAN_INTERVAL),
         )
         self.entry = entry
-        # city_api = numele exact din API (ex: "BRASOV GHIMBAV")
-        # city_display = numele pentru afisare (ex: "Brașov")
-        self.city_api = entry.data.get("city_api", entry.data.get("city", "")).upper()
-        self.city_display = entry.data.get("city_display", entry.data.get("city", ""))
+
+        # Compatibilitate cu versiunile vechi si noi ale config entry
+        # Versiune noua: city_display + city_api
+        # Versiune veche: city
+        self.city_display = (
+            entry.data.get("city_display")
+            or entry.data.get("city")
+            or ""
+        )
+        city_api_saved = entry.data.get("city_api", "")
+
+        # Daca city_api nu e salvat, il cautam in CITIES dupa city_display
+        if city_api_saved:
+            self.city_api = city_api_saved.upper()
+        else:
+            self.city_api = CITIES.get(self.city_display, self.city_display.upper())
+
+        _LOGGER.debug("Coordinator init: city_display=%s, city_api=%s", self.city_display, self.city_api)
         self.session = async_get_clientsession(hass)
 
     async def _async_update_data(self):
@@ -68,7 +82,6 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Eroare la comunicarea cu ANM: {err}") from err
 
     async def _fetch_weather(self):
-        """Obtine starea vremii si filtreaza dupa numele exact din API."""
         try:
             async with self.session.get(WEATHER_API_URL) as resp:
                 if resp.status == 200:
@@ -83,7 +96,7 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                             return props
 
                     _LOGGER.warning(
-                        "Statia '%s' nu a fost gasita in API. Statii disponibile: %s",
+                        "Statia '%s' nu a fost gasita. Statii disponibile: %s",
                         self.city_api,
                         [f.get("properties", {}).get("nume") for f in features[:10]]
                     )
