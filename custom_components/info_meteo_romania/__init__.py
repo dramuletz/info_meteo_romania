@@ -45,7 +45,10 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=SCAN_INTERVAL),
         )
         self.entry = entry
-        self.city = entry.data.get("city", "").upper()
+        # city_api = numele exact din API (ex: "BRASOV GHIMBAV")
+        # city_display = numele pentru afisare (ex: "Brașov")
+        self.city_api = entry.data.get("city_api", entry.data.get("city", "")).upper()
+        self.city_display = entry.data.get("city_display", entry.data.get("city", ""))
         self.session = async_get_clientsession(hass)
 
     async def _async_update_data(self):
@@ -59,52 +62,34 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                 "weather": weather_data,
                 "alerts": alerts_data,
                 "nowcasting": nowcasting_data,
-                "city": self.city,
+                "city": self.city_display,
             }
         except aiohttp.ClientError as err:
             raise UpdateFailed(f"Eroare la comunicarea cu ANM: {err}") from err
 
     async def _fetch_weather(self):
-        """Obtine starea vremii si filtreaza dupa oras.
-        
-        API returneaza GeoJSON cu features[].properties continand:
-        - nume: numele statiei
-        - tempe: temperatura
-        - umezeala: umiditate %
-        - presiunetext: ex '1013.2 mb, in scadere'
-        - vant: ex '7.0 m/s, directia : ESE'
-        - nebulozitate: ex 'cer partial noros'
-        - zapada: ex '177 cm la ora 15' sau 'indisponibil'
-        - fenomen_e: fenomen meteo sau 'indisponibil'
-        - icon: codul iconitei
-        - actualizat: data/ora actualizarii
-        """
+        """Obtine starea vremii si filtreaza dupa numele exact din API."""
         try:
             async with self.session.get(WEATHER_API_URL) as resp:
                 if resp.status == 200:
                     data = await resp.json(content_type=None)
                     features = data.get("features", [])
-                    
-                    # Cauta statia care se potriveste cu orasul selectat
+
                     for feature in features:
                         props = feature.get("properties", {})
                         station_name = props.get("nume", "").upper()
-                        if station_name == self.city:
-                            _LOGGER.debug("Gasit date pentru %s: %s", self.city, props)
+                        if station_name == self.city_api:
+                            _LOGGER.debug("Date gasite pentru %s: %s", self.city_api, props)
                             return props
-                    
-                    # Daca nu gaseste exact, incearca match partial
-                    for feature in features:
-                        props = feature.get("properties", {})
-                        station_name = props.get("nume", "").upper()
-                        if self.city in station_name or station_name in self.city:
-                            _LOGGER.debug("Match partial pentru %s: %s", self.city, props)
-                            return props
-                    
-                    _LOGGER.warning("Nu s-a gasit statia pentru orasul: %s", self.city)
+
+                    _LOGGER.warning(
+                        "Statia '%s' nu a fost gasita in API. Statii disponibile: %s",
+                        self.city_api,
+                        [f.get("properties", {}).get("nume") for f in features[:10]]
+                    )
                     return {}
         except Exception as err:
-            _LOGGER.warning("Eroare fetch weather: %s", err)
+            _LOGGER.error("Eroare fetch weather: %s", err)
             return {}
 
     async def _fetch_alerts(self):
