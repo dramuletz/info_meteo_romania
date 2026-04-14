@@ -264,13 +264,17 @@ async def async_setup_entry(
 class MeteoRomaniaSensor(CoordinatorEntity, SensorEntity):
     entity_description: MeteoSensorEntityDescription
 
+    _attr_has_entity_name = True
+
     def __init__(self, coordinator, description, config_entry):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{config_entry.entry_id}_{description.key}"
-        city_display = config_entry.data.get('city_display') or config_entry.data.get('city', '')
-        self._attr_name = f"{city_display.title()} {description.name}"
+        self._attr_name = description.name
         self._config_entry = config_entry
+        city = config_entry.data.get('city_display') or config_entry.data.get('city', '')
+        city_slug = city.lower().replace(' ', '_').replace('ă', 'a').replace('â', 'a').replace('î', 'i').replace('ș', 's').replace('ț', 't').replace('ş', 's').replace('ţ', 't')
+        self.entity_id = f"sensor.{city_slug}_{description.key}"
 
     @property
     def device_info(self):
