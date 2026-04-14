@@ -4,21 +4,23 @@
     "step": {
       "user": {
         "title": "Info Meteo Romania",
-        "description": "Select the city for which you want ANM weather data. Data is provided by the National Meteorological Administration of Romania.",
+        "description": "Enter the city name for ANM weather data. {total_cities} cities are available.",
         "data": {
           "city": "City"
         },
         "data_description": {
-          "city": "Choose from the list of available ANM weather stations ({total_cities} cities)"
+          "city": "Ex: Brașov, Cluj-Napoca, Timișoara, București Băneasa"
         }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to ANM server",
-      "unknown": "Unknown error"
+      "city_not_found": "City not found. Check the spelling and try again.",
+      "city_not_found_suggestions": "City not found. Did you mean: {suggestions}",
+      "cannot_connect": "Cannot connect to ANM server.",
+      "unknown": "Unknown error."
     },
     "abort": {
-      "already_configured": "Integration for this city is already configured"
+      "already_configured": "Integration for this city is already configured."
     }
   },
   "options": {
