@@ -268,12 +268,13 @@ class MeteoRomaniaSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{config_entry.entry_id}_{description.key}"
-        self._attr_name = f"{config_entry.data['city'].title()} {description.name}"
+        city_display = config_entry.data.get('city_display') or config_entry.data.get('city', '')
+        self._attr_name = f"{city_display.title()} {description.name}"
         self._config_entry = config_entry
 
     @property
     def device_info(self):
-        city = self._config_entry.data.get("city", "")
+        city = self._config_entry.data.get('city_display') or self._config_entry.data.get('city', '')
         return {
             "identifiers": {(DOMAIN, self._config_entry.entry_id)},
             "name": f"Info Meteo România - {city.title()}",
