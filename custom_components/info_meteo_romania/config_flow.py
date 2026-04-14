@@ -36,8 +36,8 @@ class InfoMeteoRomaniaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=f"Info Meteo Romania - {city_display}",
                 data={
-                    "city_display": city_display,   # ex: "Brașov"
-                    "city_api": city_api,           # ex: "BRASOV GHIMBAV"
+                    "city_display": city_display,
+                    "city_api": city_api,
                 },
             )
 
@@ -58,15 +58,8 @@ class InfoMeteoRomaniaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    @staticmethod
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
-        return InfoMeteoRomaniaOptionsFlow(config_entry)
-
 
 class InfoMeteoRomaniaOptionsFlow(config_entries.OptionsFlow):
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
