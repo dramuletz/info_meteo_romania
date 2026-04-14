@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from homeassistant.components.weather import (
     WeatherEntity,
@@ -24,7 +24,36 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-CONDITION_MAP = {
+# WMO Weather Code -> HA condition
+# https://open-meteo.com/en/docs#weathervariables
+WMO_CONDITION_MAP = {
+    0: "sunny",
+    1: "sunny",
+    2: "partlycloudy",
+    3: "cloudy",
+    45: "fog",
+    48: "fog",
+    51: "rainy",
+    53: "rainy",
+    55: "rainy",
+    61: "rainy",
+    63: "rainy",
+    65: "pouring",
+    71: "snowy",
+    73: "snowy",
+    75: "snowy",
+    77: "snowy",
+    80: "rainy",
+    81: "pouring",
+    82: "pouring",
+    85: "snowy-rainy",
+    86: "snowy",
+    95: "lightning-rainy",
+    96: "lightning-rainy",
+    99: "lightning-rainy",
+}
+
+ANM_CONDITION_MAP = {
     "cer senin": "sunny",
     "cer partial noros": "partlycloudy",
     "cer noros": "cloudy",
@@ -50,20 +79,15 @@ async def async_setup_entry(
 
 
 class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
-    """Entitate Weather pentru ANM."""
 
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_native_pressure_unit = UnitOfPressure.HPA
-    _attr_native_wind_speed_unit = UnitOfSpeed.METERS_PER_SECOND
+    _attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
     _attr_supported_features = WeatherEntityFeature.FORECAST_DAILY
     _attr_has_entity_name = True
     _attr_name = None
 
-    def __init__(
-        self,
-        coordinator: MeteoRomaniaCoordinator,
-        config_entry: ConfigEntry,
-    ) -> None:
+    def __init__(self, coordinator, config_entry):
         super().__init__(coordinator)
         self._config_entry = config_entry
         city = config_entry.data.get("city_display") or config_entry.data.get("city", "")
@@ -87,9 +111,9 @@ class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
             return self.coordinator.data.get("weather", {})
         return {}
 
-    def _parse_condition(self, nebulozitate: str) -> str:
+    def _anm_condition(self, nebulozitate: str) -> str:
         neb = nebulozitate.lower()
-        for ro_cond, ha_cond in CONDITION_MAP.items():
+        for ro_cond, ha_cond in ANM_CONDITION_MAP.items():
             if ro_cond in neb:
                 return ha_cond
         return "cloudy"
@@ -114,17 +138,18 @@ class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
     def native_pressure(self):
         weather = self._get_weather()
         try:
-            presiune_text = weather.get("presiunetext", "")
-            return round(float(presiune_text.split(" ")[0]), 1)
+            return round(float(weather.get("presiunetext", "0").split(" ")[0]), 1)
         except (ValueError, TypeError, IndexError):
             return None
 
     @property
     def native_wind_speed(self):
+        """Viteza vantului in km/h (Open-Meteo returneaza km/h)."""
         weather = self._get_weather()
         try:
             vant_text = weather.get("vant", "")
-            return round(float(vant_text.split(" ")[0]), 1)
+            ms = float(vant_text.split(" ")[0])
+            return round(ms * 3.6, 1)
         except (ValueError, TypeError, IndexError):
             return None
 
@@ -132,50 +157,51 @@ class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
     def wind_bearing(self):
         weather = self._get_weather()
         try:
-            vant_text = weather.get("vant", "")
-            return vant_text.split(": ")[1].strip()
+            return weather.get("vant", "").split(": ")[1].strip()
         except (IndexError, AttributeError):
             return None
 
     @property
     def condition(self):
         weather = self._get_weather()
-        nebulozitate = weather.get("nebulozitate", "")
-        return self._parse_condition(nebulozitate)
+        return self._anm_condition(weather.get("nebulozitate", ""))
 
     @property
     def attribution(self):
-        return "Date furnizate de ANM - Administrația Națională de Meteorologie"
+        return "Date curente: ANM | Prognoză: Open-Meteo"
 
     async def async_forecast_daily(self) -> list[Forecast] | None:
-        """Returnează prognoza zilnica - date curente pentru azi."""
-        weather = self._get_weather()
-        if not weather:
+        """Prognoza 7 zile din Open-Meteo."""
+        if not self.coordinator.data:
             return None
 
-        today = datetime.now()
+        forecast_data = self.coordinator.data.get("forecast", [])
+        if not forecast_data:
+            return None
+
         forecasts = []
+        for day in forecast_data:
+            try:
+                wmo_code = int(day.get("weathercode", 0))
+                condition = WMO_CONDITION_MAP.get(wmo_code, "cloudy")
+                date_str = day.get("date", "")
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
 
-        # ANM nu ofera prognoza zilnica in API-ul public
-        # Afisam datele curente pentru ziua de azi
-        try:
-            temp = round(float(weather.get("tempe", 0)), 1)
-            condition = self._parse_condition(weather.get("nebulozitate", ""))
-
-            forecasts.append(
-                Forecast(
-                    datetime=today.isoformat(),
-                    native_temperature=temp,
-                    native_templow=temp,
-                    condition=condition,
-                    humidity=float(weather.get("umezeala", 0)),
+                forecasts.append(
+                    Forecast(
+                        datetime=dt.isoformat(),
+                        native_temperature=day.get("temp_max"),
+                        native_templow=day.get("temp_min"),
+                        condition=condition,
+                        precipitation_probability=day.get("precip_prob"),
+                        native_wind_speed=day.get("wind_max"),
+                    )
                 )
-            )
-        except (ValueError, TypeError) as err:
-            _LOGGER.warning("Eroare la generarea forecast: %s", err)
-            return None
+            except (ValueError, TypeError) as err:
+                _LOGGER.warning("Eroare la procesarea forecast zi: %s", err)
+                continue
 
-        return forecasts
+        return forecasts if forecasts else None
 
     @property
     def extra_state_attributes(self):
@@ -183,7 +209,8 @@ class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
         alerts = self.coordinator.data.get("alerts", []) if self.coordinator.data else []
 
         attrs = {
-            "sursa": "ANM - www.meteoromania.ro",
+            "sursa_date_curente": "ANM - www.meteoromania.ro",
+            "sursa_prognoza": "Open-Meteo - open-meteo.com",
             "localitate": self.coordinator.data.get("city") if self.coordinator.data else None,
             "numar_alerte_active": len(alerts),
             "actualizat": weather.get("actualizat", "").replace("&nbsp;", " "),
