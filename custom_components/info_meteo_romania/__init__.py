@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL, FORECAST_API_URL, CITIES
+from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL, FORECAST_API_URL, CITIES, CITY_COUNTY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +61,8 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             self.city_api = city_api_saved.upper() if city_api_saved else self.city_display.upper()
             self.lat = None
             self.lon = None
+
+        self.county = CITY_COUNTY.get(self.city_display, "")
 
         _LOGGER.debug("Coordinator: city=%s, api=%s, lat=%s, lon=%s",
                       self.city_display, self.city_api, self.lat, self.lon)
@@ -135,6 +137,45 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             _LOGGER.warning("Eroare fetch forecast Open-Meteo: %s", err)
             return []
 
+    def _filter_by_county(self, warnings: list) -> list:
+        """Filtreaza alertele pentru judetul orasului selectat."""
+        if not self.county or not warnings:
+            return warnings
+
+        filtered = []
+        county_lower = self.county.lower()
+        for w in warnings:
+            if not isinstance(w, dict):
+                continue
+            # Campurile posibile in XML-ul ANM pentru judet
+            region = (
+                w.get("region", "") or
+                w.get("county", "") or
+                w.get("judet", "") or
+                w.get("area", "") or
+                w.get("regions", "") or
+                ""
+            ).lower()
+
+            # Verifica daca judetul orasului apare in region
+            if (county_lower in region or
+                region in county_lower or
+                # Verifica si in descriere
+                county_lower in w.get("description", "").lower() or
+                county_lower in w.get("text", "").lower()):
+                filtered.append(w)
+
+        # Daca nu gasim nimic filtrat, returnam toate alertele
+        # (ANM poate folosi regiuni geografice in loc de judete)
+        if not filtered and warnings:
+            _LOGGER.debug(
+                "Nu s-au gasit alerte pentru judetul '%s', se returneaza toate alertele (%d)",
+                self.county, len(warnings)
+            )
+            return warnings
+
+        return filtered
+
     async def _fetch_alerts(self):
         try:
             async with self.session.get(ALERTS_XML_URL) as resp:
@@ -144,7 +185,8 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                     warnings = parsed.get("warnings", {}).get("warning", [])
                     if isinstance(warnings, dict):
                         warnings = [warnings]
-                    return warnings if warnings else []
+                    warnings = warnings if warnings else []
+                    return self._filter_by_county(warnings)
         except Exception as err:
             _LOGGER.warning("Eroare fetch alerte: %s", err)
             return []
@@ -158,7 +200,8 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                     warnings = parsed.get("warnings", {}).get("warning", [])
                     if isinstance(warnings, dict):
                         warnings = [warnings]
-                    return warnings if warnings else []
+                    warnings = warnings if warnings else []
+                    return self._filter_by_county(warnings)
         except Exception as err:
             _LOGGER.warning("Eroare fetch nowcasting: %s", err)
             return []
