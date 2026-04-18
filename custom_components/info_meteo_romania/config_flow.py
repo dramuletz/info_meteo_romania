@@ -13,20 +13,6 @@ from .const import DOMAIN, CITIES
 _LOGGER = logging.getLogger(__name__)
 
 
-def _find_city(user_input: str) -> str | None:
-    """Cauta orasul dupa nume, case-insensitive."""
-    user_input = user_input.strip()
-    # Match exact
-    for city in CITIES:
-        if city.lower() == user_input.lower():
-            return city
-    # Match partial - inceput de cuvant
-    matches = [city for city in CITIES if city.lower().startswith(user_input.lower())]
-    if len(matches) == 1:
-        return matches[0]
-    return None
-
-
 class InfoMeteoRomaniaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Gestionează configurarea Info Meteo Romania."""
 
@@ -36,42 +22,33 @@ class InfoMeteoRomaniaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         errors: dict[str, str] = {}
-        description_placeholders = {}
 
         if user_input is not None:
-            typed = user_input.get("city", "").strip()
-            city_display = _find_city(typed)
-
-            if not city_display:
-                # Cauta sugestii
-                matches = [
-                    city for city in CITIES
-                    if typed.lower() in city.lower()
-                ]
-                if matches:
-                    description_placeholders["suggestions"] = ", ".join(matches[:5])
-                    errors["city"] = "city_not_found_suggestions"
-                else:
-                    errors["city"] = "city_not_found"
+            city_display = user_input["city"]
+            city_info = CITIES.get(city_display)
+            if city_info:
+                city_api = city_info[0]
             else:
-                city_api = CITIES[city_display][0]
+                city_api = city_display.upper()
 
-                await self.async_set_unique_id(
-                    f"{DOMAIN}_{city_display.lower().replace(' ', '_')}"
-                )
-                self._abort_if_unique_id_configured()
+            await self.async_set_unique_id(
+                f"{DOMAIN}_{city_display.lower().replace(' ', '_')}"
+            )
+            self._abort_if_unique_id_configured()
 
-                return self.async_create_entry(
-                    title=f"Info Meteo Romania - {city_display}",
-                    data={
-                        "city_display": city_display,
-                        "city_api": city_api,
-                    },
-                )
+            return self.async_create_entry(
+                title=f"Info Meteo Romania - {city_display}",
+                data={
+                    "city_display": city_display,
+                    "city_api": city_api,
+                },
+            )
+
+        sorted_cities = sorted(CITIES.keys(), key=lambda x: x.lower())
 
         schema = vol.Schema(
             {
-                vol.Required("city"): str,
+                vol.Required("city"): vol.In(sorted_cities),
             }
         )
 
@@ -81,7 +58,6 @@ class InfoMeteoRomaniaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "total_cities": str(len(CITIES)),
-                **description_placeholders,
             },
         )
 
