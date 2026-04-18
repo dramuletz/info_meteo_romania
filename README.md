@@ -4,7 +4,7 @@
 
 ![Logo](https://www.meteoromania.ro/wp-content/uploads/2016/07/logo-meteo2.png)
 
-**Integrare oficială ANM pentru Home Assistant**
+**Integrarea ANM pentru Home Assistant**
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://github.com/hacs/integration)
 [![Release](https://img.shields.io/github/v/release/dramuletz/info_meteo_romania?style=for-the-badge&color=blue)](https://github.com/dramuletz/info_meteo_romania/releases)
@@ -176,6 +176,38 @@ content: >
 
 ---
 
+### Card 5 — Alertă ANM cu text și culoare
+
+Afișează textul complet al avertizării ANM cu stegulețul colorat corespunzător.
+
+```yaml
+type: markdown
+title: 🚨 Avertizări ANM Brașov
+content: >
+  {% set culoare = states('sensor.brasov_alert_color') %}
+  {% set nr_alerte = states('sensor.brasov_anm_alerts') | int(0) %}
+  {% set alerte = state_attr('sensor.brasov_anm_alerts', 'alerte_detalii') %}
+
+  {% if nr_alerte == 0 %}
+  🟢 **Nu există avertizări meteo!**
+  {% else %}
+  {% if culoare == 'Roșu' %}🔴{% elif culoare == 'Portocaliu' %}🟠{% elif culoare == 'Galben' %}🟡{% else %}🟢{% endif %} **Alertă {{ culoare }} activă**
+
+  ---
+  {% if alerte %}
+  {% for alerta in alerte %}
+  **📌 Tip:** {{ alerta.tip }}
+  **📝 Descriere:** {{ alerta.descriere }}
+  **🕐 Valabilitate:** {{ alerta.start }} — {{ alerta.sfarsit }}
+  **📍 Județ:** {{ alerta.judet }}
+
+  {% endfor %}
+  {% endif %}
+  {% endif %}
+```
+
+---
+
 ## Exemple de automatizări
 
 ### Automatizare 1 — Notificare la alertă ANM activă
@@ -198,7 +230,7 @@ action:
     data:
       title: "⚠️ Alertă Meteo ANM - Brașov"
       message: >
-        🟡 Alertă! Atentie cod {{ states('sensor.brasov_alert_color') }} activ în zona Brașov!
+        🟡 Alertă {{ states('sensor.brasov_alert_color') }} activă în zona Brașov!
 
         {% set alerte = state_attr('sensor.brasov_anm_alerts', 'alerte_detalii') %}
         {% if alerte %}
@@ -259,7 +291,7 @@ action:
 mode: single
 ```
 
-> 💡 Înlocuiește `brasov` cu numele localității tale și `mobile_app_telefonul_meu` cu numele serviciului tău de notificări.
+> 💡 Înlocuiește `brasov` cu slug-ul localității tale și `mobile_app_telefonul_meu` cu numele serviciului tău de notificări.
 
 ---
 
