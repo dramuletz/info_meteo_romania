@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import timedelta
 
 import aiohttp
@@ -13,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL, FORECAST_API_URL, CITIES, CITY_COUNTY
+from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL, FORECAST_API_URL, CITIES, CITY_COUNTY, COUNTY_CODES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,6 +36,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
+def _strip_html(text: str) -> str:
+    """Elimina tagurile HTML din text."""
+    if not text:
+        return ""
+    clean = re.sub(r'<[^>]+>', ' ', text)
+    clean = clean.replace('&nbsp;', ' ').replace('&icirc;', 'î').replace('&acirc;', 'â')
+    clean = clean.replace('&icirc;', 'î').replace('&acirc;', 'â').replace('&ndash;', '-')
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    return clean
+
+
 class MeteoRomaniaCoordinator(DataUpdateCoordinator):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -46,13 +58,12 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
         )
         self.entry = entry
         self.city_display = (
-            entry.data.get("city_display")
-            or entry.data.get("city")
-            or ""
+            entry.data.get("city_display") or
+            entry.data.get("city") or ""
         )
         city_api_saved = entry.data.get("city_api", "")
-
         city_info = CITIES.get(self.city_display)
+
         if city_info:
             self.city_api = city_info[0]
             self.lat = city_info[1]
@@ -62,10 +73,11 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             self.lat = None
             self.lon = None
 
-        self.county = CITY_COUNTY.get(self.city_display, "")
-
-        _LOGGER.debug("Coordinator: city=%s, api=%s, lat=%s, lon=%s",
-                      self.city_display, self.city_api, self.lat, self.lon)
+        # Codul judetului pentru filtrarea alertelor (ex: "BV" pentru Brasov)
+        county_name = CITY_COUNTY.get(self.city_display, "")
+        self.county_code = COUNTY_CODES.get(county_name, "")
+        _LOGGER.debug("Coordinator: city=%s, api=%s, county=%s, code=%s",
+                      self.city_display, self.city_api, county_name, self.county_code)
         self.session = async_get_clientsession(hass)
 
     async def _async_update_data(self):
@@ -102,8 +114,95 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Eroare fetch weather: %s", err)
             return {}
 
+    def _parse_alerts(self, raw_warnings: list) -> list:
+        """Parseaza alertele ANM si extrage campurile corecte."""
+        parsed = []
+        for w in raw_warnings:
+            if not isinstance(w, dict):
+                continue
+
+            # Verifica daca alerta se aplica judetului nostru
+            judete = w.get("judet", [])
+            if isinstance(judete, dict):
+                judete = [judete]
+
+            # Daca avem cod judet, filtram
+            if self.county_code and judete:
+                coduri = [j.get("@cod", "") for j in judete if isinstance(j, dict)]
+                # Verifica si zone montane (ex: BV_munte)
+                if not any(self.county_code in cod for cod in coduri):
+                    continue
+
+            # Extrage culoarea pentru judetul nostru
+            culoare_judet = "verde"
+            if judete and self.county_code:
+                for j in judete:
+                    if isinstance(j, dict) and self.county_code in j.get("@cod", ""):
+                        culoare_judet = {
+                            "0": "galben",
+                            "1": "portocaliu",
+                            "2": "rosu",
+                        }.get(j.get("@culoare", ""), w.get("@numeCuloare", "verde"))
+                        break
+            else:
+                culoare_judet = w.get("@numeCuloare", "verde")
+
+            # Curata textul mesajului de HTML
+            mesaj = _strip_html(w.get("@mesaj", ""))
+
+            parsed.append({
+                "tip": w.get("@numeTipMesaj", ""),
+                "culoare": culoare_judet,
+                "start": w.get("@dataAparitiei", ""),
+                "sfarsit": w.get("@dataExpirarii", ""),
+                "fenomene": w.get("@fenomeneVizate", ""),
+                "interval": w.get("@intervalul", ""),
+                "zona": w.get("@zonaAfectata", ""),
+                "mesaj": mesaj[:500] if mesaj else "",
+            })
+
+        return parsed
+
+    async def _fetch_alerts(self):
+        try:
+            async with self.session.get(ALERTS_XML_URL) as resp:
+                if resp.status == 200:
+                    raw = await resp.text()
+                    parsed = xmltodict.parse(raw)
+                    warnings = (
+                        parsed.get("avertizari", {}).get("avertizare") or
+                        parsed.get("warnings", {}).get("warning") or
+                        []
+                    )
+                    if isinstance(warnings, dict):
+                        warnings = [warnings]
+                    warnings = warnings if warnings else []
+                    return self._parse_alerts(warnings)
+        except Exception as err:
+            _LOGGER.warning("Eroare fetch alerte: %s", err)
+            return []
+
+    async def _fetch_nowcasting(self):
+        try:
+            async with self.session.get(NOWCASTING_XML_URL) as resp:
+                if resp.status == 200:
+                    raw = await resp.text()
+                    parsed = xmltodict.parse(raw)
+                    warnings = (
+                        parsed.get("avertizari", {}).get("avertizare") or
+                        parsed.get("warnings", {}).get("warning") or
+                        []
+                    )
+                    if isinstance(warnings, dict):
+                        warnings = [warnings]
+                    warnings = warnings if warnings else []
+                    return self._parse_alerts(warnings)
+        except Exception as err:
+            _LOGGER.warning("Eroare fetch nowcasting: %s", err)
+            return []
+
     async def _fetch_forecast(self):
-        """Prognoza 7 zile via Open-Meteo (gratuit, fara API key)."""
+        """Prognoza 7 zile via Open-Meteo."""
         if not self.lat or not self.lon:
             return []
         try:
@@ -114,14 +213,12 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                     daily = data.get("daily", {})
                     if not daily:
                         return []
-
                     times = daily.get("time", [])
                     temp_max = daily.get("temperature_2m_max", [])
                     temp_min = daily.get("temperature_2m_min", [])
                     precip_prob = daily.get("precipitation_probability_max", [])
                     weathercodes = daily.get("weathercode", [])
                     wind_max = daily.get("windspeed_10m_max", [])
-
                     forecasts = []
                     for i, date in enumerate(times):
                         forecasts.append({
@@ -134,61 +231,5 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                         })
                     return forecasts
         except Exception as err:
-            _LOGGER.warning("Eroare fetch forecast Open-Meteo: %s", err)
-            return []
-
-    def _filter_by_county(self, warnings: list) -> list:
-        """Filtreaza alertele pentru judetul orasului selectat.
-        
-        Logam continutul alertelor pentru debug si returnam toate alertele active.
-        Filtrarea pe judet nu este posibila fara a cunoaste exact structura XML-ului ANM.
-        """
-        if not warnings:
-            return []
-        
-        for w in warnings:
-            if isinstance(w, dict):
-                _LOGGER.debug("Alerta ANM gasita: %s", w)
-        
-        return warnings
-
-    async def _fetch_alerts(self):
-        try:
-            async with self.session.get(ALERTS_XML_URL) as resp:
-                if resp.status == 200:
-                    raw = await resp.text()
-                    _LOGGER.debug("RAW XML alerte ANM: %s", raw[:2000])
-                    parsed = xmltodict.parse(raw)
-                    _LOGGER.debug("Parsed XML alerte ANM: %s", parsed)
-                    # Incearca toate cheile posibile din XML
-                    root = parsed
-                    warnings = (
-                        root.get("warnings", {}).get("warning") or
-                        root.get("alerts", {}).get("alert") or
-                        root.get("warning") or
-                        root.get("alert") or
-                        []
-                    )
-                    if isinstance(warnings, dict):
-                        warnings = [warnings]
-                    warnings = warnings if warnings else []
-                    _LOGGER.debug("Alerte gasite: %d -> %s", len(warnings), warnings)
-                    return self._filter_by_county(warnings)
-        except Exception as err:
-            _LOGGER.warning("Eroare fetch alerte: %s", err)
-            return []
-
-    async def _fetch_nowcasting(self):
-        try:
-            async with self.session.get(NOWCASTING_XML_URL) as resp:
-                if resp.status == 200:
-                    content = await resp.text()
-                    parsed = xmltodict.parse(content)
-                    warnings = parsed.get("warnings", {}).get("warning", [])
-                    if isinstance(warnings, dict):
-                        warnings = [warnings]
-                    warnings = warnings if warnings else []
-                    return self._filter_by_county(warnings)
-        except Exception as err:
-            _LOGGER.warning("Eroare fetch nowcasting: %s", err)
+            _LOGGER.warning("Eroare fetch forecast: %s", err)
             return []
