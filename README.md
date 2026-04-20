@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Logo](https://www.meteoromania.ro/wp-content/uploads/2016/07/logo-meteo2.png)
+![Logo](https://github.com/dramuletz/info_meteo_romania/blob/main/custom_components/info_meteo_romania/brand/logo.png)
 
 **Integrarea ANM pentru Home Assistant**
 
