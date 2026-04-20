@@ -117,17 +117,17 @@ def _parse_alerts_count(data):
 
 
 def _parse_alert_color(data):
-    """Culoarea celei mai severe alerte."""
+    """Culoarea celei mai severe alerte - foloseste campul 'culoare' din XML ANM."""
     alerts = data.get("alerts", [])
     if not alerts:
         return "Verde"
-    color_priority = {"red": 4, "orange": 3, "yellow": 2, "green": 1}
-    color_names = {"red": "Roșu", "orange": "Portocaliu", "yellow": "Galben", "green": "Verde"}
-    max_color = "green"
+    color_priority = {"rosu": 4, "portocaliu": 3, "galben": 2, "verde": 1}
+    color_names = {"rosu": "Roșu", "portocaliu": "Portocaliu", "galben": "Galben", "verde": "Verde"}
+    max_color = "verde"
     max_priority = 0
     for alert in alerts:
         if isinstance(alert, dict):
-            color = alert.get("color", "green").lower()
+            color = alert.get("culoare", "verde").lower()
             if color_priority.get(color, 0) > max_priority:
                 max_priority = color_priority[color]
                 max_color = color
@@ -308,11 +308,14 @@ class MeteoRomaniaSensor(CoordinatorEntity, SensorEntity):
             if alerts:
                 attrs["alerte_detalii"] = [
                     {
-                        "tip": a.get("type", ""),
-                        "culoare": a.get("color", ""),
-                        "start": a.get("start_date", ""),
-                        "sfarsit": a.get("end_date", ""),
-                        "descriere": a.get("description", ""),
+                        "tip": a.get("tip", ""),
+                        "culoare": a.get("culoare", ""),
+                        "start": a.get("start", ""),
+                        "sfarsit": a.get("sfarsit", ""),
+                        "fenomene": a.get("fenomene", ""),
+                        "interval": a.get("interval", ""),
+                        "zona": a.get("zona", ""),
+                        "mesaj": a.get("mesaj", ""),
                     }
                     for a in alerts if isinstance(a, dict)
                 ]
