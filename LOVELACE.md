@@ -151,7 +151,7 @@ content: >
 
   **Presiune:** {{ states('sensor.<oras>_pressure') }} hPa
 
-  **Vânt:** {{ states('sensor.<oras>_wind_speed') }} m/s
+  **Vânt:** {{ states('sensor.<oras>_wind_speed') }} m/s -
   {{ states('sensor.<oras>_wind_direction') }}
 
   **Nebulozitate:** {{ states('sensor.<oras>_cloudiness') }}
@@ -202,9 +202,9 @@ content: >
   {% if alerte %}
   {% for alerta in alerte %}
   **📌 Tip:** {{ alerta.tip }}
-  **📝 Descriere:** {{ alerta.descriere }}
-  **🕐 Valabilitate:** {{ alerta.start }} — {{ alerta.sfarsit }}
-  **📍 Județ:** {{ alerta.judet }}
+  **⚡ Fenomene:** {{ alerta.fenomene }}
+  **🕐 Interval:** {{ alerta.interval }}
+  **📝 Mesaj:** {{ alerta.mesaj }}
 
   {% endfor %}
   {% endif %}
@@ -258,9 +258,10 @@ action:
         {% set alerte = state_attr('sensor.<oras>_anm_alerts', 'alerte_detalii') %}
         {% if alerte %}
           {% for alerta in alerte %}
-          📌 Tip: {{ alerta.tip }}
-          📝 {{ alerta.descriere }}
-          🕐 Valabilă: {{ alerta.start }} - {{ alerta.sfarsit }}
+          📌 {{ alerta.tip }}
+          ⚡ {{ alerta.fenomene }}
+          🕐 {{ alerta.interval }}
+          📝 {{ alerta.mesaj }}
           {% endfor %}
         {% endif %}
       data:
