@@ -138,54 +138,41 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
             return []
 
     def _filter_by_county(self, warnings: list) -> list:
-        """Filtreaza alertele pentru judetul orasului selectat."""
-        if not self.county or not warnings:
-            return warnings
-
-        filtered = []
-        county_lower = self.county.lower()
+        """Filtreaza alertele pentru judetul orasului selectat.
+        
+        Logam continutul alertelor pentru debug si returnam toate alertele active.
+        Filtrarea pe judet nu este posibila fara a cunoaste exact structura XML-ului ANM.
+        """
+        if not warnings:
+            return []
+        
         for w in warnings:
-            if not isinstance(w, dict):
-                continue
-            # Campurile posibile in XML-ul ANM pentru judet
-            region = (
-                w.get("region", "") or
-                w.get("county", "") or
-                w.get("judet", "") or
-                w.get("area", "") or
-                w.get("regions", "") or
-                ""
-            ).lower()
-
-            # Verifica daca judetul orasului apare in region
-            if (county_lower in region or
-                region in county_lower or
-                # Verifica si in descriere
-                county_lower in w.get("description", "").lower() or
-                county_lower in w.get("text", "").lower()):
-                filtered.append(w)
-
-        # Daca nu gasim nimic filtrat, returnam toate alertele
-        # (ANM poate folosi regiuni geografice in loc de judete)
-        if not filtered and warnings:
-            _LOGGER.debug(
-                "Nu s-au gasit alerte pentru judetul '%s', se returneaza toate alertele (%d)",
-                self.county, len(warnings)
-            )
-            return warnings
-
-        return filtered
+            if isinstance(w, dict):
+                _LOGGER.debug("Alerta ANM gasita: %s", w)
+        
+        return warnings
 
     async def _fetch_alerts(self):
         try:
             async with self.session.get(ALERTS_XML_URL) as resp:
                 if resp.status == 200:
-                    content = await resp.text()
-                    parsed = xmltodict.parse(content)
-                    warnings = parsed.get("warnings", {}).get("warning", [])
+                    raw = await resp.text()
+                    _LOGGER.debug("RAW XML alerte ANM: %s", raw[:2000])
+                    parsed = xmltodict.parse(raw)
+                    _LOGGER.debug("Parsed XML alerte ANM: %s", parsed)
+                    # Incearca toate cheile posibile din XML
+                    root = parsed
+                    warnings = (
+                        root.get("warnings", {}).get("warning") or
+                        root.get("alerts", {}).get("alert") or
+                        root.get("warning") or
+                        root.get("alert") or
+                        []
+                    )
                     if isinstance(warnings, dict):
                         warnings = [warnings]
                     warnings = warnings if warnings else []
+                    _LOGGER.debug("Alerte gasite: %d -> %s", len(warnings), warnings)
                     return self._filter_by_county(warnings)
         except Exception as err:
             _LOGGER.warning("Eroare fetch alerte: %s", err)
