@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Logo](https://github.com/dramuletz/info_meteo_romania/blob/main/custom_components/info_meteo_romania/brand/logo.png)
+![Logo](https://github.com/dramuletz/info_meteo_romania/blob/main/custom_components/info_meteo_romania/brand/logo-mic.png)
 
 **Integrarea ANM pentru Home Assistant**
 
