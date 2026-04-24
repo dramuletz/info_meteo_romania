@@ -101,8 +101,8 @@ class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
         return {
             "identifiers": {(DOMAIN, self._config_entry.entry_id)},
             "name": f"Info Meteo România - {city.title()}",
-            "manufacturer": "ANM - Administrația Națională de Meteorologie",
-            "model": "Stație Meteo",
+            "manufacturer": "Stefan Dram (dramuletz)",
+            "model": "ANM - Administrația Națională de Meteorologie - date oficiale",
             "entry_type": "service",
         }
 
