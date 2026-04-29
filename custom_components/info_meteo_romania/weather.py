@@ -93,7 +93,7 @@ class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
         city = config_entry.data.get("city_display") or config_entry.data.get("city", "")
         city_slug = city.lower().replace(" ", "_").replace("ă", "a").replace("â", "a").replace("î", "i").replace("ș", "s").replace("ț", "t").replace("ş", "s").replace("ţ", "t")
         self._attr_unique_id = f"{config_entry.entry_id}_weather"
-        self.entity_id = f"weather.{city_slug}"
+        self.entity_id = f"weather.{city_slug}_meteo"
 
     @property
     def device_info(self):
@@ -101,8 +101,8 @@ class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
         return {
             "identifiers": {(DOMAIN, self._config_entry.entry_id)},
             "name": f"Info Meteo România - {city.title()}",
-            "manufacturer": "Stefan Dram (dramuletz)",
-            "model": "ANM - Administrația Națională de Meteorologie - date oficiale",
+            "manufacturer": "Stefan Dram",
+            "model": "ANM - Administrația Națională de Meteorologie date oficiale",
             "entry_type": "service",
         }
 
@@ -206,7 +206,7 @@ class MeteoRomaniaWeather(CoordinatorEntity, WeatherEntity):
     @property
     def extra_state_attributes(self):
         weather = self._get_weather()
-        alerts = self.coordinator.data.get("alerts", []) if self.coordinator.data else []
+        alerts = (self.coordinator.data.get("alerts") or []) if self.coordinator.data else []
 
         attrs = {
             "sursa_date_curente": "ANM - www.meteoromania.ro",
