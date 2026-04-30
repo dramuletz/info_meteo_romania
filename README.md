@@ -6,10 +6,10 @@
 
 **Integrarea ANM pentru Home Assistant**
 
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge&logo=homeassistantcommunitystore)](https://github.com/hacs/integration)
 [![Release](https://img.shields.io/github/v/release/dramuletz/info_meteo_romania?style=for-the-badge&color=blue)](https://github.com/dramuletz/info_meteo_romania/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![HA](https://img.shields.io/badge/Home%20Assistant-2023.1+-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025+-41BDF5?style=for-the-badge&logo=homeassistant)](https://www.home-assistant.io/)
 
 </div>
 
