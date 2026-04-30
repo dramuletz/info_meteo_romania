@@ -92,8 +92,3 @@ Datele sunt preluate direct de pe serverele oficiale ANM:
 
 ---
 
-<div align="center">
-
-Dezvoltat cu ❤️ pentru comunitatea Home Assistant din România
-
-</div>
