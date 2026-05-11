@@ -158,7 +158,7 @@ class MeteoRomaniaCoordinator(DataUpdateCoordinator):
                 "fenomene": w.get("@fenomeneVizate", ""),
                 "interval": w.get("@intervalul", ""),
                 "zona": w.get("@zonaAfectata", ""),
-                "mesaj": mesaj[:500] if mesaj else "",
+                "mesaj": mesaj[:2000] if mesaj else "",
             })
 
         return parsed
