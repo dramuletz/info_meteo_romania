@@ -15,6 +15,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN, SCAN_INTERVAL, WEATHER_API_URL, ALERTS_XML_URL, NOWCASTING_XML_URL, FORECAST_API_URL, CITIES, CITY_COUNTY, COUNTY_CODES
+from .notificari import ManagerNotificari
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +28,54 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Inregistreaza listener pentru notificari persistente ANM
+    def _handle_alerts_update() -> None:
+        """Trimite notificare persistenta cand apar alerte ANM."""
+        if not coordinator.data:
+            return
+
+        alerts = coordinator.data.get("alerts", []) or []
+        city = coordinator.city_display
+        notification_id = f"alerta_anm_{entry.entry_id}"
+
+        if not alerts:
+            async_dismiss(hass, notification_id)
+            return
+
+        # Determina culoarea maxima
+        color_priority = {"rosu": 3, "portocaliu": 2, "galben": 1}
+        color_names = {"rosu": "Roșu 🔴", "portocaliu": "Portocaliu 🟠", "galben": "Galben 🟡"}
+        max_color = "galben"
+        for alert in alerts:
+            if isinstance(alert, dict):
+                c = alert.get("culoare", "verde").lower()
+                if color_priority.get(c, 0) > color_priority.get(max_color, 0):
+                    max_color = c
+
+        title = f"Alertă ANM {color_names.get(max_color, max_color)} - {city}"
+
+        lines = []
+        for alert in alerts:
+            if not isinstance(alert, dict):
+                continue
+            if alert.get("tip"):
+                lines.append(f"**{alert['tip']}**")
+            if alert.get("fenomene"):
+                lines.append(f"⚡ {alert['fenomene']}")
+            if alert.get("interval"):
+                lines.append(f"🕐 {alert['interval']}")
+            if alert.get("mesaj"):
+                lines.append(f"{alert['mesaj'][:500]}")
+            lines.append("---")
+
+        message = "
+".join(lines) if lines else "Alertă meteo activă în zona ta."
+
+        async_create(hass, message, title=title, notification_id=notification_id)
+
+    # Listener se apeleaza la fiecare actualizare a datelor
+    entry.async_on_unload(coordinator.async_add_listener(_handle_alerts_update))
     return True
 
 
